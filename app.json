@@ -1,27 +1,41 @@
+// 3. Uppdatera app.json för StageTalk och URL scheme test
 {
   "expo": {
-    "name": "theater-accessibility-app",
-    "slug": "theater-accessibility-app",
+    "name": "StageTalk",
+    "slug": "stagetalk",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "theateraccessibilityapp",
+    "scheme": "stagetalk",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#000000"
     },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSBluetoothPeripheralUsageDescription": "This app uses Bluetooth to receive theater cues for accessibility features",
+        "NSLocationWhenInUseUsageDescription": "Location is required for Bluetooth scanning",
+        "NSMicrophoneUsageDescription": "Microphone access for audio features"
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#000000"
       },
-      "edgeToEdgeEnabled": true
+      "permissions": [
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_ADMIN",
+        "android.permission.ACCESS_COARSE_LOCATION", 
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "bundler": "metro",

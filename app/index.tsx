@@ -1,5 +1,6 @@
+// app/index.tsx
 import { Stack } from 'expo-router';
-import React, { useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { StyleSheet, StatusBar, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useAccessibility } from '../hooks/useAccessibility';
@@ -7,6 +8,7 @@ import { usePlaylists } from '../hooks/usePlaylists';
 import { useTheaterMode } from '../hooks/useTheaterMode';
 import TheaterModeScreen from '../components/TheaterModeScreen';
 import PlaylistList from '../components/PlaylistList';
+import StartModal from '../components/StartModal'; // <-- Lägg till denna rad!
 
 export default function StageTalkScreen() {
   const navigation = useNavigation();
@@ -41,6 +43,10 @@ export default function StageTalkScreen() {
     navigation,
   });
 
+  // Nytt state för startmodal
+  const [showStartModal, setShowStartModal] = useState(false);
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
+
   // Ladda playlists när screen fokuseras
   useFocusEffect(
     useCallback(() => {
@@ -48,13 +54,36 @@ export default function StageTalkScreen() {
     }, [loadPlaylists])
   );
 
-  // Titlebar: StageTalk
-  // Denna rad MÅSTE ligga överst i return!
-  // Annars används default-titeln (t.ex. 'index')
-  // och inte din egna.
+  // Hantera start från listan: öppna startmodal först
+  const handleStartShow = (playlistId: string) => {
+    setSelectedPlaylistId(playlistId);
+    setShowStartModal(true);
+  };
+
+  // När användaren trycker "Start" i modal: starta show och stäng modal
+  const handleModalStart = () => {
+    if (selectedPlaylistId) {
+      startShow(selectedPlaylistId);
+    }
+    setShowStartModal(false);
+    setSelectedPlaylistId(null);
+  };
+
+  // Om man avbryter startmodalen: stäng modal
+  const handleModalCancel = () => {
+    setShowStartModal(false);
+    setSelectedPlaylistId(null);
+  };
+
   return (
     <>
       <Stack.Screen options={{ title: 'StageTalk' }} />
+      {/* StartModal visas bara när man valt en föreställning */}
+      <StartModal
+        visible={showStartModal}
+        onStart={handleModalStart}
+        onCancel={handleModalCancel}
+      />
       {theaterMode ? (
         <TheaterModeScreen
           currentShow={currentShow}
@@ -77,7 +106,7 @@ export default function StageTalkScreen() {
           </Text>
           <PlaylistList
             playlists={playlists}
-            onStartShow={startShow}
+            onStartShow={handleStartShow}
             onDeletePlaylist={deletePlaylist}
           />
         </View>

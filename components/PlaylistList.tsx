@@ -1,3 +1,4 @@
+// components/PlaylistList.tsx
 import React from 'react';
 import {
   StyleSheet,
@@ -8,18 +9,18 @@ import {
   Text,
   View,
 } from 'react-native';
-import { FontAwesome } from '@expo/vector-icons'; // Lägg till denna rad!
+import { FontAwesome } from '@expo/vector-icons';
 import { PlaylistMetadata } from '../src/types';
 
 interface PlaylistListProps {
   playlists: PlaylistMetadata[];
-  onStartShow: (playlistId: string) => void;
+  onStartShow: (playlistId: string, showName: string) => void; // Uppdaterad signatur!
   onDeletePlaylist: (playlistId: string, showName: string) => void;
 }
 
 interface PlaylistItemProps {
   item: PlaylistMetadata;
-  onStartShow: (playlistId: string) => void;
+  onStartShow: (playlistId: string, showName: string) => void; // Uppdaterad signatur!
   onDeletePlaylist: (playlistId: string, showName: string) => void;
 }
 
@@ -53,7 +54,7 @@ function PlaylistItem({ item, onStartShow, onDeletePlaylist }: PlaylistItemProps
       {/* Spellistkortet */}
       <TouchableOpacity
         style={styles.showCard}
-        onPress={() => onStartShow(item.playlistId)}
+        onPress={() => onStartShow(item.playlistId, item.showName)} // Skickar med namn!
         accessible={true}
         accessibilityLabel={`Starta ${item.showName}`}
         accessibilityHint="Startar föreställningen"
@@ -71,7 +72,7 @@ function PlaylistItem({ item, onStartShow, onDeletePlaylist }: PlaylistItemProps
         accessibilityHint="Tar bort föreställningen permanent från appen"
         accessibilityRole="button"
       >
-        <FontAwesome name="trash" size={26} color="#fff" />
+        <FontAwesome name="trash" size={28} color="#fff" />
       </TouchableOpacity>
     </View>
   );
@@ -144,7 +145,7 @@ const styles = StyleSheet.create({
     elevation: 6,
     justifyContent: 'center',
     minHeight: 60,
-    marginRight: 12, // gap mot delete
+    marginRight: 12,
   },
   showTitle: {
     fontSize: 20,

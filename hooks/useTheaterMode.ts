@@ -14,11 +14,11 @@ interface UseTheaterModeProps {
   navigation: any;
 }
 
-export function useTheaterMode({ 
-  announceForAccessibility, 
+export function useTheaterMode({
+  announceForAccessibility,
   setAccessibilityFocus,
   isVoiceOverRunning,
-  navigation 
+  navigation,
 }: UseTheaterModeProps) {
   const [theaterMode, setTheaterMode] = useState(false);
   const [currentShow, setCurrentShow] = useState<Playlist | null>(null);
@@ -33,7 +33,7 @@ export function useTheaterMode({
     });
   }, [theaterMode, navigation]);
 
-  // Android tillbaka-knapp
+  // BackHandler
   useEffect(() => {
     const backAction = () => {
       if (theaterMode) {
@@ -46,21 +46,13 @@ export function useTheaterMode({
       }
       return false;
     };
-    
     const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
     return () => backHandler.remove();
   }, [theaterMode, showExitDialog]);
 
-  const showExitDialogWithFocus = (exitButtonRef?: any) => {
+  // Modalen – sätter fokus på Stopp när den öppnas (löses i komponent med ref + useEffect, se nedan)
+  const showExitDialogWithFocus = () => {
     setShowExitDialog(true);
-    setTimeout(() => {
-      if (isVoiceOverRunning && exitButtonRef?.current) {
-        const tag = exitButtonRef.current;
-        if (tag) {
-          setAccessibilityFocus(tag);
-        }
-      }
-    }, 400);
   };
 
   const handleLongPressStart = () => {
@@ -89,44 +81,40 @@ export function useTheaterMode({
     }
   };
 
-  // Uppdaterad startShow
-// I useTheaterMode.ts
+  const startShow = async (playlistId: string) => {
+    try {
+      const playlist = await playlistService.getPlaylist(playlistId);
+      if (!playlist) return;
 
-const startShow = async (playlistId: string) => {
-  try {
-    const playlist = await playlistService.getPlaylist(playlistId);
-    if (!playlist) return;
+      playlistService.setCurrentPlaylist(playlist);
+      setCurrentShow(playlist);
+      cueSimulator.startSimulation(playlist);
+      await KeepAwake.activateKeepAwakeAsync(); // Måste vara async!
+      StatusBar.setHidden(true);
+      setTheaterMode(true);
+      console.log(`🎭 Started playing: ${playlist.showName}`);
 
-    playlistService.setCurrentPlaylist(playlist);
-    setCurrentShow(playlist);
-    cueSimulator.startSimulation(playlist);
-    await KeepAwake.activateKeepAwakeAsync();
-    StatusBar.setHidden(true);
-    setTheaterMode(true);
-    console.log(`🎭 Started listening for: ${playlist.showName}`);
-
-    // Endast för VoiceOver!
-    if (isVoiceOverRunning) {
-      announceForAccessibility(
-        "Lyssningsläge har startat. Stäng inte av enheten och lås inte skärmen under föreställningen. För att stoppa, dubbeltryck och håll kvar fingret på skärmen."
-      );
+      // Gör ingen announce här om du öppnar modal direkt efteråt!
+      if (isVoiceOverRunning) {
+        announceForAccessibility(
+          "Uppspelningsläge har startat. Stäng inte av enheten och lås inte skärmen under föreställningen. Håll kvar fingret på skärmen tills en fråga visas om du vill avsluta."
+        );
+      }
+    } catch (error) {
+      Alert.alert('Error', `Failed to start show: ${error}`, [{ text: 'OK' }]);
     }
+  };
 
-  } catch (error) {
-    Alert.alert('Error', `Failed to start show: ${error}`, [{ text: 'OK' }]);
-  }
-};
-
-
+  // KORRIGERAD – MÅSTE VARA async/await och tömma dialog först!
   const exitTheaterMode = async () => {
-    await KeepAwake.deactivateKeepAwake(); // KORREKT anrop!
+    setShowExitDialog(false);
+    KeepAwake.deactivateKeepAwake();
     StatusBar.setHidden(false);
     setTheaterMode(false);
     setCurrentShow(null);
-    setShowExitDialog(false);
     setLongPressProgress(0);
     cueSimulator.stopSimulation();
-    console.log('🛑 Show stopped');
+    console.log('🛑 Playback stopped');
   };
 
   const cancelExit = () => setShowExitDialog(false);

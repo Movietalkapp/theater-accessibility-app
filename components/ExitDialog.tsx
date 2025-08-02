@@ -1,15 +1,23 @@
 // components/ExitDialog.tsx
-import React, { useRef } from 'react';
-import { Modal, View as RNView, TouchableOpacity, StyleSheet, Text } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { Modal, View as RNView, TouchableOpacity, StyleSheet, Text, AccessibilityInfo, findNodeHandle } from 'react-native';
 
 interface ExitDialogProps {
   visible: boolean;
-  onExit: () => void;
+  onExit: () => Promise<void>;
   onCancel: () => void;
 }
 
 export default function ExitDialog({ visible, onExit, onCancel }: ExitDialogProps) {
   const exitButtonRef = useRef<TouchableOpacity>(null);
+
+  // Sätt VO-fokus på Stopp när modalen visas
+  useEffect(() => {
+    if (visible && exitButtonRef.current) {
+      const node = findNodeHandle(exitButtonRef.current);
+      if (node) AccessibilityInfo.setAccessibilityFocus(node);
+    }
+  }, [visible]);
 
   return (
     <Modal
@@ -25,29 +33,25 @@ export default function ExitDialog({ visible, onExit, onCancel }: ExitDialogProp
           <Text
             style={styles.dialogTitle}
             accessibilityRole="header"
-            accessible={true}
+            accessible={false}
           >
             Vill du avsluta föreställningen?
           </Text>
-          
           <TouchableOpacity
             ref={exitButtonRef}
             style={styles.exitButton}
             onPress={onExit}
             accessible={true}
-            accessibilityLabel="Stoppa föreställning"
-            accessibilityHint="Avsluta lyssningsläge och återgå till listan"
+            accessibilityLabel="Stoppa föreställningen"
             accessibilityRole="button"
           >
             <Text style={styles.exitButtonText}>Stoppa</Text>
           </TouchableOpacity>
-          
           <TouchableOpacity
             style={styles.cancelButton}
             onPress={onCancel}
             accessible={true}
-            accessibilityLabel="Fortsätt lyssna"
-            accessibilityHint="Fortsätt lyssna på föreställningen"
+            accessibilityLabel="Fortsätt"
             accessibilityRole="button"
           >
             <Text style={styles.cancelButtonText}>Fortsätt</Text>
@@ -73,9 +77,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   dialogTitle: {
-    color: '#fff', 
-    fontSize: 18, 
-    marginBottom: 24, 
+    color: '#fff',
+    fontSize: 18,
+    marginBottom: 24,
     textAlign: 'center',
     fontWeight: '600',
   },

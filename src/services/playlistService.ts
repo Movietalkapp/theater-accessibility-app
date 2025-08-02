@@ -1,4 +1,4 @@
-// 3. Skapa PlaylistService - skapa fil: src/services/playlistService.ts
+// src/services/playlistService.ts - Updated
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system';
 import * as Crypto from 'expo-crypto';
@@ -25,16 +25,17 @@ class PlaylistService {
         throw new Error('Invalid playlist structure');
       }
       
-      // Verifiera checksum (simulerat för nu)
-      if (!await this.verifyPlaylistChecksum(playlist)) {
-        console.warn('⚠️ Checksum verification failed, but continuing...');
+      // Verifiera checksum - STOPPA här vid fel
+      const checksumValid = await this.verifyPlaylistChecksum(playlist);
+      if (!checksumValid) {
+        throw new Error('Playlist checksum verification failed. This playlist may be corrupted or unauthorized.');
       }
       
       // Spara playlist lokalt
       await this.savePlaylist(playlist);
       
       this.currentPlaylist = playlist;
-      console.log('✅ Playlist loaded successfully:', playlist.showName);
+      console.log('✅ Playlist loaded and verified successfully:', playlist.showName);
       
       return playlist;
     } catch (error) {
@@ -70,29 +71,92 @@ class PlaylistService {
     return true;
   }
 
-  // Verifiera checksum (förenklad version för utveckling)
-  private async verifyPlaylistChecksum(playlist: Playlist, salt = 'dev-salt'): Promise<boolean> {
+  // Verifiera checksum med robust validering
+  private async verifyPlaylistChecksum(playlist: Playlist): Promise<boolean> {
     try {
-      if (!playlist.checksum) return true; // Skip i utveckling
+      // Kräv alltid checksum i produktion
+      if (!playlist.checksum || playlist.checksum.trim() === '') {
+        console.error('❌ No checksum provided in playlist');
+        return false;
+      }
       
-      const dataToHash = JSON.stringify(playlist.cues) + salt;
-      const calculatedHash = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.MD5,
-        dataToHash
-      );
+      // Skapa deterministisk hash av cues-innehållet
+      const cuesHash = await this.generateCuesChecksum(playlist.cues, playlist.playlistId);
       
-      const isValid = calculatedHash === playlist.checksum;
-      console.log(isValid ? '✅ Checksum valid' : '❌ Checksum invalid');
+      const isValid = cuesHash === playlist.checksum;
+      
+      if (isValid) {
+        console.log('✅ Checksum valid - playlist integrity verified');
+      } else {
+        console.error('❌ Checksum invalid - playlist may be corrupted or unauthorized');
+        console.error('Expected:', playlist.checksum);
+        console.error('Calculated:', cuesHash);
+      }
       
       return isValid;
     } catch (error) {
-      console.error('Checksum verification error:', error);
+      console.error('❌ Checksum verification error:', error);
       return false;
     }
   }
 
-  // Spara playlist lokalt
-  private async savePlaylist(playlist: Playlist): Promise<void> {
+  // Generera checksum för cues (samma algoritm som webb-portalen)
+  private async generateCuesChecksum(cues: any[], playlistId: string): Promise<string> {
+    try {
+      // Skapa deterministisk representation av cues
+      const normalizedCues = this.normalizeCuesForHashing(cues);
+      
+      // Kombinera med playlist-specifikt salt
+      const salt = this.generatePlaylistSalt(playlistId);
+      const dataToHash = JSON.stringify(normalizedCues) + salt;
+      
+      // Använd SHA-256 för säkerhet
+      const hash = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        dataToHash
+      );
+      
+      return hash;
+    } catch (error) {
+      console.error('Failed to generate cues checksum:', error);
+      throw error;
+    }
+  }
+
+  // Normalisera cues för konsistent hashing
+  private normalizeCuesForHashing(cues: any[]): any[] {
+    return cues
+      .map(cue => ({
+        id: cue.id,
+        actions: cue.actions.map((action: any) => ({
+          type: action.type,
+          text: action.text?.trim() || '',
+          language: action.language || '',
+          delay: action.delay || 0,
+          // Inkludera andra relevanta fält men normalisera dem
+          ...(action.volume !== undefined && { volume: action.volume }),
+          ...(action.pitch !== undefined && { pitch: action.pitch }),
+          ...(action.rate !== undefined && { rate: action.rate })
+        }))
+      }))
+      .sort((a, b) => a.id.localeCompare(b.id)); // Sortera för konsistens
+  }
+
+  // Generera playlist-specifikt salt (samma som webb-portalen ska använda)
+  private generatePlaylistSalt(playlistId: string): string {
+    // Använd en kombination av:
+    // 1. Fast app-specifik nyckel 
+    // 2. Playlist-specifik data
+    // 3. Tidsoberoende hash (så samma playlist får samma salt)
+    
+    const appSecret = 'StageTalk_v1_2025'; // Samma som webb-portalen
+    const playlistDate = playlistId.split('_')[1] || '2025'; // Extrahera år från ID
+    
+    return `${appSecret}:${playlistId}:${playlistDate}:validation`;
+  }
+
+  // Spara playlist lokalt (nu public så den kan användas från andra delar)
+  async savePlaylist(playlist: Playlist): Promise<void> {
     try {
       // Spara själva playlist
       await AsyncStorage.setItem(
@@ -173,6 +237,17 @@ class PlaylistService {
       console.error('Failed to delete playlist:', error);
       throw error;
     }
+  }
+
+  // Debug-funktion för att testa checksum-generering
+  async debugGenerateChecksum(cues: any[], playlistId: string): Promise<string> {
+    console.log('🔍 Debug: Generating checksum for playlist:', playlistId);
+    console.log('🔍 Debug: Number of cues:', cues.length);
+    
+    const checksum = await this.generateCuesChecksum(cues, playlistId);
+    console.log('🔍 Debug: Generated checksum:', checksum);
+    
+    return checksum;
   }
 }
 

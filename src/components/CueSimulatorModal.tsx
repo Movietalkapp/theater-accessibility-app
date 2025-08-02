@@ -109,7 +109,7 @@ export default function CueSimulatorModal({ visible, onClose, playlist }: Props)
         <View style={styles.cueButtonHeader}>
           <Text style={styles.cueButtonText}>Cue {cue.id}</Text>
 <Text style={styles.cueActionCount}>
-  {cue.actions.length} action{cue.actions.length !== 1 ? 's' : ''}
+  {`${cue.actions.length} action${cue.actions.length !== 1 ? 's' : ''}`}
 </Text>
         </View>
         <Text style={styles.cueDescription} numberOfLines={2}>

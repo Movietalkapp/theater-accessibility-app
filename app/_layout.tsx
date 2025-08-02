@@ -1,3 +1,4 @@
+// app/_layout.tsx
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
@@ -48,7 +49,7 @@ export default function RootLayout() {
           const playlistUrl = parsed.queryParams?.url as string;
           
           if (!playlistUrl) {
-            Alert.alert('Fel', 'Ingen playlist-URL angiven');
+            Alert.alert('Fel', 'Ingen playlist-URL angiven', [{ text: 'OK' }]);
             return;
           }
 
@@ -62,9 +63,9 @@ export default function RootLayout() {
                 onPress: async () => {
                   try {
                     await playlistService.loadPlaylistFromURL(playlistUrl);
-                    Alert.alert('✅ Klart!', 'Föreställningen har laddats ner och är redo att användas.');
+                    Alert.alert('✅ Klart!', 'Föreställningen har laddats ner och är redo att användas.', [{ text: 'OK' }]);
                   } catch (error) {
-                    Alert.alert('❌ Fel', `Kunde inte ladda föreställning: ${error}`);
+                    Alert.alert('❌ Fel', `Kunde inte ladda föreställning: ${error}`, [{ text: 'OK' }]);
                   }
                 }
               }
@@ -73,7 +74,7 @@ export default function RootLayout() {
         }
       } catch (error) {
         console.error('Error parsing URL:', error);
-        Alert.alert('Fel', 'Ogiltigt URL-format');
+        Alert.alert('Fel', 'Ogiltigt URL-format', [{ text: 'OK' }]);
       }
     };
 
@@ -99,7 +100,7 @@ function RootLayoutNav() {
   const colorScheme = useColorScheme();
 
   return (
-    <ThemeProvider value={DarkTheme}> {/* Använd mörkt tema för svart UI */}
+    <ThemeProvider value={DarkTheme}>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal' }} />

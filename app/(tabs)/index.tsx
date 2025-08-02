@@ -1,8 +1,13 @@
-import { StyleSheet, TouchableOpacity, FlatList, StatusBar, Alert } from 'react-native';
-import { useState, useEffect, useCallback } from 'react';
+// app/(tabs)/index.tsx - StageTalkScreen med full accessibility och Modal
+import {
+  StyleSheet, TouchableOpacity, FlatList, StatusBar, Alert, BackHandler,
+  AccessibilityInfo, Modal, View as RNView, findNodeHandle
+} from 'react-native';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Text, View } from '@/components/Themed';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as KeepAwake from 'expo-keep-awake';
+import * as Haptics from 'expo-haptics';
 import playlistService from '../../src/services/playlistService';
 import cueSimulator from '../../src/services/cueSimulator';
 import { PlaylistMetadata, Playlist } from '../../src/types';
@@ -11,7 +16,23 @@ export default function StageTalkScreen() {
   const [playlists, setPlaylists] = useState<PlaylistMetadata[]>([]);
   const [theaterMode, setTheaterMode] = useState(false);
   const [currentShow, setCurrentShow] = useState<Playlist | null>(null);
-  const [showStopButton, setShowStopButton] = useState(false);
+  const [showExitDialog, setShowExitDialog] = useState(false);
+  const [longPressProgress, setLongPressProgress] = useState(0);
+  const [isVoiceOverRunning, setIsVoiceOverRunning] = useState(false);
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const exitButtonRef = useRef<TouchableOpacity>(null);
+  const navigation = useNavigation();
+
+  // Kolla VoiceOver-status
+  useEffect(() => {
+    const checkVoiceOver = async () => {
+      const isRunning = await AccessibilityInfo.isScreenReaderEnabled();
+      setIsVoiceOverRunning(isRunning);
+    };
+    checkVoiceOver();
+    const subscription = AccessibilityInfo.addEventListener('screenReaderChanged', setIsVoiceOverRunning);
+    return () => subscription?.remove();
+  }, []);
 
   // Ladda playlists när screen fokuseras
   useFocusEffect(
@@ -19,6 +40,39 @@ export default function StageTalkScreen() {
       loadPlaylists();
     }, [])
   );
+
+  // Android tillbaka-knapp
+  useEffect(() => {
+    const backAction = () => {
+      if (theaterMode) {
+        if (showExitDialog) {
+          exitTheaterMode();
+        } else {
+          showExitDialogWithFocus();
+        }
+        return true;
+      }
+      return false;
+    };
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => backHandler.remove();
+  }, [theaterMode, showExitDialog]);
+
+  // Dölj header i teaterläge
+  useEffect(() => {
+    navigation.setOptions({
+      headerShown: !theaterMode,
+    });
+  }, [theaterMode, navigation]);
+
+  // Announcement när theaterMode startas
+  useEffect(() => {
+    if (theaterMode) {
+      AccessibilityInfo.announceForAccessibility(
+        "Dubbeltryck och håll kvar fingret på skärmen för att stoppa."
+      );
+    }
+  }, [theaterMode]);
 
   const loadPlaylists = async () => {
     try {
@@ -29,66 +83,91 @@ export default function StageTalkScreen() {
     }
   };
 
-  // Klick på playlist - starta föreställning
+  // Visa exit-dialog med auto-fokus på stopp-knappen
+  const showExitDialogWithFocus = () => {
+    setShowExitDialog(true);
+    setTimeout(() => {
+      if (isVoiceOverRunning && exitButtonRef.current) {
+        const tag = findNodeHandle(exitButtonRef.current);
+        if (tag) {
+          AccessibilityInfo.setAccessibilityFocus(tag);
+        }
+      }
+    }, 400);
+  };
+
+  // Hantera långtryck
+  const handleLongPressStart = () => {
+    if (showExitDialog) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    let progress = 0;
+    longPressTimer.current = setInterval(() => {
+      progress += 3;
+      setLongPressProgress(progress);
+      if (progress >= 100) {
+        clearInterval(longPressTimer.current!);
+        longPressTimer.current = null;
+        setLongPressProgress(0);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        showExitDialogWithFocus();
+      }
+    }, 30);
+  };
+
+  const handleLongPressEnd = () => {
+    if (longPressTimer.current) {
+      clearInterval(longPressTimer.current);
+      longPressTimer.current = null;
+      setLongPressProgress(0);
+    }
+  };
+
+  // Exit teaterläge
+  const exitTheaterMode = () => {
+    KeepAwake.deactivateKeepAwake();
+    StatusBar.setHidden(false);
+    setTheaterMode(false);
+    setCurrentShow(null);
+    setShowExitDialog(false);
+    setLongPressProgress(0);
+    cueSimulator.stopSimulation();
+    console.log('🛑 Show stopped');
+  };
+
+  const cancelExit = () => setShowExitDialog(false);
+
+  // Hjälpfunktion för säker datumformatering
+  const formatDate = (dateString: string): string => {
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return 'Unknown date';
+      }
+      return date.toLocaleDateString('sv-SE') || 'Unknown date';
+    } catch (error) {
+      return 'Unknown date';
+    }
+  };
+
+  // Starta föreställning
   const startShow = async (playlistId: string) => {
     try {
       const playlist = await playlistService.getPlaylist(playlistId);
       if (!playlist) return;
-
-      // Sätt som aktiv playlist
       playlistService.setCurrentPlaylist(playlist);
       setCurrentShow(playlist);
-
-      // Starta simulator (för testning - senare BLE)
       cueSimulator.startSimulation(playlist);
-
-      // Aktivera theater mode
       KeepAwake.activateKeepAwake();
       StatusBar.setHidden(true);
       setTheaterMode(true);
-
       console.log(`🎭 Started listening for: ${playlist.showName}`);
     } catch (error) {
-      Alert.alert('Error', `Failed to start show: ${error}`);
+      Alert.alert('Error', `Failed to start show: ${error}`, [{ text: 'OK' }]);
     }
   };
 
-  // Tryck på svart skärm - visa stop knapp
-  const handleScreenTap = () => {
-    setShowStopButton(true);
-    // Dölj stop knapp efter 3 sekunder
-    setTimeout(() => setShowStopButton(false), 3000);
-  };
-
-  // Stoppa föreställning
-  const stopShow = () => {
-    Alert.alert(
-      '🛑 Stoppa föreställning',
-      'Vill du sluta lyssna och återgå till listan?',
-      [
-        { text: 'Avbryt', style: 'cancel' },
-        {
-          text: 'Stoppa',
-          style: 'destructive',
-          onPress: () => {
-            // Återställ normal läge
-            KeepAwake.deactivateKeepAwake();
-            StatusBar.setHidden(false);
-            setTheaterMode(false);
-            setCurrentShow(null);
-            setShowStopButton(false);
-            
-            // Stoppa simulator
-            cueSimulator.stopSimulation();
-            
-            console.log('🛑 Show stopped');
-          }
-        }
-      ]
-    );
-  };
-
-  // Lägg till test-playlist om listan är tom
+  // Lägg till test-playlist
   const addTestShow = async () => {
     try {
       const testPlaylist = {
@@ -136,70 +215,135 @@ export default function StageTalkScreen() {
         mediaFiles: [],
         createdAt: new Date().toISOString()
       };
-
       await playlistService.savePlaylist(testPlaylist);
       await loadPlaylists();
     } catch (error) {
-      Alert.alert('Error', `Failed to add test show: ${error}`);
+      Alert.alert('Error', `Failed to add test show: ${error}`, [{ text: 'OK' }]);
     }
   };
 
-  // Theater Mode - svart skärm
+  // THEATER MODE
   if (theaterMode) {
     return (
-      <TouchableOpacity
-        style={styles.theaterScreen}
-        onPress={handleScreenTap}
-        activeOpacity={1}
-      >
+      <View style={styles.theaterScreen}>
         <StatusBar hidden />
-        
-        {/* Minimal lyssnar-indikator */}
-        <View style={styles.listeningIndicator}>
-          <View style={styles.listeningDot} />
+        {/* Fullskärms touch-area för långtryck */}
+        <TouchableOpacity
+          style={styles.fullScreenTouch}
+          onPressIn={handleLongPressStart}
+          onPressOut={handleLongPressEnd}
+          activeOpacity={1}
+          accessible={!showExitDialog}
+          accessibilityLabel={`Lyssningsläge för ${currentShow?.showName}. Tryck två gånger och håll för att stoppa.`}
+          accessibilityHint="Dubbelknacka och håll kvar fingret för att visa alternativ för att stoppa föreställningen"
+          accessibilityRole="button"
+        />
+
+        {/* Minimal lyssnar-indikator - mycket svag */}
+        <View
+          style={styles.listeningIndicator}
+          accessible={false}
+        >
+          <View
+            style={styles.listeningDot}
+            accessible={false}
+          />
         </View>
 
-        {/* Stop knapp (visas bara vid tryck) */}
-        {showStopButton && (
-          <View style={styles.stopButtonContainer}>
-            <TouchableOpacity style={styles.stopButton} onPress={stopShow}>
-              <Text style={styles.stopButtonText}>🛑 Stoppa</Text>
-            </TouchableOpacity>
-            <Text style={styles.stopHint}>Tryck igen för att dölja</Text>
+        {/* Långtryck progress - bara synlig under tryck */}
+        {longPressProgress > 0 && (
+          <View style={styles.progressContainer} accessible={false}>
+            <View style={styles.progressBar}>
+              <View style={[styles.progressFill, { width: `${longPressProgress}%` }]} />
+            </View>
           </View>
         )}
 
-        {/* Mycket subtil show-info längst ner */}
-        <View style={styles.showInfo}>
-  {currentShow?.showName && (
-    <Text style={styles.showTitle}>
-      {currentShow.showName}
-    </Text>
-  )}
-</View>
-      </TouchableOpacity>
+        {/* EXIT DIALOG MED MODAL */}
+        <Modal
+          visible={showExitDialog}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={cancelExit}
+          accessible={true}
+          accessibilityViewIsModal={true}
+        >
+          <RNView style={styles.exitDialogOverlay}>
+            <RNView style={styles.exitDialogContainer}>
+              <Text
+                style={styles.dialogTitle}
+                accessibilityRole="header"
+                accessible={true}
+              >
+                Vill du avsluta föreställningen?
+              </Text>
+              <TouchableOpacity
+                ref={exitButtonRef}
+                style={styles.exitButton}
+                onPress={exitTheaterMode}
+                accessible={true}
+                accessibilityLabel="Stoppa föreställning"
+                accessibilityHint="Avsluta lyssningsläge och återgå till listan"
+                accessibilityRole="button"
+              >
+                <Text style={styles.exitButtonText}>Stoppa</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={cancelExit}
+                accessible={true}
+                accessibilityLabel="Fortsätt lyssna"
+                accessibilityHint="Fortsätt lyssna på föreställningen"
+                accessibilityRole="button"
+              >
+                <Text style={styles.cancelButtonText}>Fortsätt</Text>
+              </TouchableOpacity>
+            </RNView>
+          </RNView>
+        </Modal>
+      </View>
     );
   }
 
-  // Normal läge - lista med föreställningar
+  // NORMAL MODE
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
-      
+
       {/* Instruktion */}
-      <Text style={styles.instruction}>
-        Klicka på föreställningen för att starta
+      <Text
+        style={styles.instruction}
+        accessible={true}
+        accessibilityRole="header"
+      >
+        Välj föreställning att lyssna på
       </Text>
 
       {/* Lista med föreställningar */}
       {playlists.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyTitle}>Inga föreställningar</Text>
-          <Text style={styles.emptyText}>
+          <Text
+            style={styles.emptyTitle}
+            accessible={true}
+            accessibilityRole="header"
+          >
+            Inga föreställningar
+          </Text>
+          <Text
+            style={styles.emptyText}
+            accessible={true}
+          >
             Ladda ner en föreställning via länk från teatern
           </Text>
-          
-          <TouchableOpacity style={styles.testButton} onPress={addTestShow}>
+
+          <TouchableOpacity
+            style={styles.testButton}
+            onPress={addTestShow}
+            accessible={true}
+            accessibilityLabel="Lägg till test-föreställning"
+            accessibilityHint="Lägg till en demo-föreställning av Hamlet för att testa appen"
+            accessibilityRole="button"
+          >
             <Text style={styles.testButtonText}>+ Lägg till test-föreställning</Text>
           </TouchableOpacity>
         </View>
@@ -211,16 +355,18 @@ export default function StageTalkScreen() {
             <TouchableOpacity
               style={styles.showCard}
               onPress={() => startShow(item.playlistId)}
+              accessible={true}
+              accessibilityLabel={`${item.showName}`}
+              accessibilityHint="Starta denna föreställning"
+              accessibilityRole="button"
             >
               <Text style={styles.showTitle}>{item.showName}</Text>
-              <Text style={styles.showTheater}>{item.theaterName}</Text>
-              <Text style={styles.showDate}>
-                Nedladdad: {new Date(item.downloadedAt).toLocaleDateString('sv-SE')}
-              </Text>
             </TouchableOpacity>
           )}
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
+          accessible={false}
+          removeClippedSubviews={false}
         />
       )}
     </View>
@@ -234,7 +380,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 20,
   },
-  
   instruction: {
     fontSize: 18,
     textAlign: 'center',
@@ -242,11 +387,9 @@ const styles = StyleSheet.create({
     color: '#333333',
     fontWeight: '500',
   },
-  
   listContainer: {
     paddingBottom: 20,
   },
-  
   showCard: {
     backgroundColor: '#f8f9fa',
     padding: 20,
@@ -259,33 +402,21 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    justifyContent: 'center',
+    minHeight: 60,
   },
-  
   showTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 6,
     color: '#1a1a1a',
+    textAlign: 'center',
   },
-  
-  showTheater: {
-    fontSize: 16,
-    color: '#666666',
-    marginBottom: 8,
-  },
-  
-  showDate: {
-    fontSize: 12,
-    color: '#999999',
-  },
-  
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 40,
   },
-  
   emptyTitle: {
     fontSize: 24,
     fontWeight: 'bold',
@@ -293,7 +424,6 @@ const styles = StyleSheet.create({
     color: '#1a1a1a',
     textAlign: 'center',
   },
-  
   emptyText: {
     fontSize: 16,
     color: '#666666',
@@ -301,75 +431,107 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     marginBottom: 30,
   },
-  
   testButton: {
     backgroundColor: '#007AFF',
     paddingVertical: 16,
     paddingHorizontal: 32,
     borderRadius: 25,
   },
-  
   testButtonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
   },
-  
-  // Theater Mode Styles
+  // Theater Mode - helt mörk
   theaterScreen: {
     flex: 1,
     backgroundColor: '#000000',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  
+  fullScreenTouch: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
   listeningIndicator: {
     position: 'absolute',
     top: 50,
     right: 20,
   },
-  
   listeningDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
     backgroundColor: '#00ff00',
-    opacity: 0.6,
+    opacity: 0.3,
   },
-  
-  stopButtonContainer: {
+  progressContainer: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -50 }, { translateY: -12 }],
+  },
+  progressBar: {
+    width: 100,
+    height: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 1,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    borderRadius: 1,
+  },
+  exitDialogOverlay: {
+    flex: 1,
+    backgroundColor: '#000000',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  
-  stopButton: {
-    backgroundColor: '#ff4444',
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 25,
-    marginBottom: 12,
+  exitDialogContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#000000',
+    paddingVertical: 40,
+    paddingHorizontal: 40,
   },
-  
-  stopButtonText: {
-    color: 'white',
+  dialogTitle: {
+    color: '#fff', 
+    fontSize: 18, 
+    marginBottom: 24, 
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  exitButton: {
+    backgroundColor: '#dc3545',
+    paddingVertical: 16,
+    paddingHorizontal: 30,
+    borderRadius: 12,
+    marginBottom: 20,
+    minWidth: 140,
+    alignItems: 'center',
+    shadowColor: '#dc3545',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  exitButtonText: {
+    color: '#ffffff',
     fontSize: 18,
     fontWeight: 'bold',
   },
-  
-  stopHint: {
-    color: '#444444',
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  
-  showInfo: {
-    position: 'absolute',
-    bottom: 30,
+  cancelButton: {
+    backgroundColor: '#333333',
+    paddingVertical: 16,
+    paddingHorizontal: 30,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#555555',
+    minWidth: 140,
     alignItems: 'center',
   },
-  
-  showTitle: {
-    color: '#333333',
-    fontSize: 12,
-    opacity: 0.5,
+  cancelButtonText: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '600',
   },
 });

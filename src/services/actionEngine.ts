@@ -95,7 +95,9 @@ class ActionEngine {
 
     try {
       // För utveckling - simulera audio playback
-      Alert.alert('🎵 Audio Cue', `Would play: ${action.file}\n\nVolume: ${action.volume || 1.0}`);
+      const audioFile = action.file || 'unknown';
+      const volume = action.volume || 1.0;
+      Alert.alert('🎵 Audio Cue', `Would play: ${audioFile}\n\nVolume: ${volume}`, [{ text: 'OK' }]);
       
       // TODO: Implementera riktig audio playback när vi har ljudfiler
       // const { sound } = await Audio.Sound.createAsync(
@@ -114,14 +116,16 @@ class ActionEngine {
 
   // Video playback (placeholder)
   private async executeVideo(action: CueAction): Promise<void> {
-    console.log(`🎬 Video: ${action.file}`);
-    Alert.alert('🎬 Video Cue', `Would play video: ${action.file || 'unknown'}`);
+    const videoFile = action.file || 'unknown';
+    console.log(`🎬 Video: ${videoFile}`);
+    Alert.alert('🎬 Video Cue', `Would play video: ${videoFile}`, [{ text: 'OK' }]);
   }
 
   // Subtitle display (placeholder)
   private async executeSubtitle(action: CueAction): Promise<void> {
-    console.log(`📺 Subtitle: ${action.text}`);
-    Alert.alert('📺 Subtitle', action.text || 'No subtitle text');
+    const subtitleText = action.text || 'No subtitle text';
+    console.log(`📺 Subtitle: ${subtitleText}`);
+    Alert.alert('📺 Subtitle', subtitleText, [{ text: 'OK' }]);
   }
 
   // Stoppa alla pågående actions

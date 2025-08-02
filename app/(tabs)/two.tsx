@@ -1,3 +1,4 @@
+// app/(tabs)/two.tsx
 import { StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { useState, useEffect } from 'react';
 import { Text, View } from '@/components/Themed';

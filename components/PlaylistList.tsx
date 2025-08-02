@@ -1,13 +1,14 @@
-// components/PlaylistList.tsx
 import React from 'react';
-import { 
-  StyleSheet, 
-  TouchableOpacity, 
-  FlatList, 
+import {
+  StyleSheet,
+  TouchableOpacity,
+  FlatList,
   Alert,
-  AccessibilityInfo
+  AccessibilityInfo,
+  Text,
+  View,
 } from 'react-native';
-import { Text, View } from '@/components/Themed';
+import { FontAwesome } from '@expo/vector-icons'; // Lägg till denna rad!
 import { PlaylistMetadata } from '../src/types';
 
 interface PlaylistListProps {
@@ -33,7 +34,7 @@ function PlaylistItem({ item, onStartShow, onDeletePlaylist }: PlaylistItemProps
           style: "cancel",
           onPress: () => {
             AccessibilityInfo.announceForAccessibility("Borttagning avbruten");
-          }
+          },
         },
         {
           text: "Ta bort",
@@ -41,15 +42,15 @@ function PlaylistItem({ item, onStartShow, onDeletePlaylist }: PlaylistItemProps
           onPress: () => {
             onDeletePlaylist(item.playlistId, item.showName);
             AccessibilityInfo.announceForAccessibility(item.showName + " har tagits bort");
-          }
-        }
+          },
+        },
       ]
     );
   };
 
   return (
     <View style={styles.playlistItemContainer}>
-      {/* Huvudkort - klickbart för att starta */}
+      {/* Spellistkortet */}
       <TouchableOpacity
         style={styles.showCard}
         onPress={() => onStartShow(item.playlistId)}
@@ -60,8 +61,8 @@ function PlaylistItem({ item, onStartShow, onDeletePlaylist }: PlaylistItemProps
       >
         <Text style={styles.showTitle}>{item.showName}</Text>
       </TouchableOpacity>
-      
-      {/* Radera-knapp */}
+
+      {/* Radera-knapp – nu med FontAwesome trash-ikon */}
       <TouchableOpacity
         style={styles.deleteButton}
         onPress={handleDelete}
@@ -70,9 +71,7 @@ function PlaylistItem({ item, onStartShow, onDeletePlaylist }: PlaylistItemProps
         accessibilityHint="Tar bort föreställningen permanent från appen"
         accessibilityRole="button"
       >
-        <View style={styles.deleteButtonInner}>
-          <Text style={styles.deleteIcon}>🗑️</Text>
-        </View>
+        <FontAwesome name="trash" size={26} color="#fff" />
       </TouchableOpacity>
     </View>
   );
@@ -130,7 +129,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 16,
-    gap: 12,
   },
   showCard: {
     flex: 1,
@@ -146,6 +144,7 @@ const styles = StyleSheet.create({
     elevation: 6,
     justifyContent: 'center',
     minHeight: 60,
+    marginRight: 12, // gap mot delete
   },
   showTitle: {
     fontSize: 20,
@@ -154,31 +153,19 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   deleteButton: {
-    backgroundColor: '#e74c3c',
     width: 56,
     height: 56,
-    borderRadius: 12,
+    borderRadius: 28,
+    backgroundColor: '#e74c3c',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3,
+    borderWidth: 2,
     borderColor: '#c0392b',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 8,
-  },
-  deleteButtonInner: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 10,
-    backgroundColor: '#e74c3c',
-  },
-  deleteIcon: {
-    fontSize: 24,
-    color: '#ffffff',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 6,
   },
   emptyContainer: {
     flex: 1,

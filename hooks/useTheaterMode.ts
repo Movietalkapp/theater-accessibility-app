@@ -33,15 +33,6 @@ export function useTheaterMode({
     });
   }, [theaterMode, navigation]);
 
-  // Announcement när theaterMode startas
-  useEffect(() => {
-    if (theaterMode) {
-      announceForAccessibility(
-        "Dubbeltryck och håll kvar fingret på skärmen för att stoppa."
-      );
-    }
-  }, [theaterMode, announceForAccessibility]);
-
   // Android tillbaka-knapp
   useEffect(() => {
     const backAction = () => {
@@ -98,25 +89,37 @@ export function useTheaterMode({
     }
   };
 
-  const startShow = async (playlistId: string) => {
-    try {
-      const playlist = await playlistService.getPlaylist(playlistId);
-      if (!playlist) return;
-      
-      playlistService.setCurrentPlaylist(playlist);
-      setCurrentShow(playlist);
-      cueSimulator.startSimulation(playlist);
-      KeepAwake.activateKeepAwake();
-      StatusBar.setHidden(true);
-      setTheaterMode(true);
-      console.log(`🎭 Started listening for: ${playlist.showName}`);
-    } catch (error) {
-      Alert.alert('Error', `Failed to start show: ${error}`, [{ text: 'OK' }]);
-    }
-  };
+  // Uppdaterad startShow
+// I useTheaterMode.ts
 
-  const exitTheaterMode = () => {
-    KeepAwake.deactivateKeepAwake();
+const startShow = async (playlistId: string) => {
+  try {
+    const playlist = await playlistService.getPlaylist(playlistId);
+    if (!playlist) return;
+
+    playlistService.setCurrentPlaylist(playlist);
+    setCurrentShow(playlist);
+    cueSimulator.startSimulation(playlist);
+    await KeepAwake.activateKeepAwakeAsync();
+    StatusBar.setHidden(true);
+    setTheaterMode(true);
+    console.log(`🎭 Started listening for: ${playlist.showName}`);
+
+    // Endast för VoiceOver!
+    if (isVoiceOverRunning) {
+      announceForAccessibility(
+        "Lyssningsläge har startat. Stäng inte av enheten och lås inte skärmen under föreställningen. För att stoppa, dubbeltryck och håll kvar fingret på skärmen."
+      );
+    }
+
+  } catch (error) {
+    Alert.alert('Error', `Failed to start show: ${error}`, [{ text: 'OK' }]);
+  }
+};
+
+
+  const exitTheaterMode = async () => {
+    await KeepAwake.deactivateKeepAwake(); // KORREKT anrop!
     StatusBar.setHidden(false);
     setTheaterMode(false);
     setCurrentShow(null);

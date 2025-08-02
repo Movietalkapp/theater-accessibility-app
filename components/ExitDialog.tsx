@@ -1,7 +1,6 @@
 // components/ExitDialog.tsx
 import React, { useRef } from 'react';
-import { Modal, View as RNView, TouchableOpacity, StyleSheet } from 'react-native';
-import { Text } from '@/components/Themed';
+import { Modal, View as RNView, TouchableOpacity, StyleSheet, Text } from 'react-native';
 
 interface ExitDialogProps {
   visible: boolean;

@@ -9,15 +9,9 @@ import * as Linking from 'expo-linking';
 import { Alert } from 'react-native';
 import playlistService from '../src/services/playlistService';
 
-import { useColorScheme } from '@/components/useColorScheme';
-
 export {
   ErrorBoundary,
 } from 'expo-router';
-
-export const unstable_settings = {
-  initialRouteName: '(tabs)',
-};
 
 SplashScreen.preventAutoHideAsync();
 
@@ -97,13 +91,11 @@ export default function RootLayout() {
 }
 
 function RootLayoutNav() {
-  const colorScheme = useColorScheme();
-
   return (
     <ThemeProvider value={DarkTheme}>
+      {/* Bara returnera slotten! */}
       <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="index" options={{ headerShown: false }} />
       </Stack>
     </ThemeProvider>
   );

@@ -36,7 +36,8 @@
     "expo-speech": "~13.1.7",
     "expo-screen-orientation": "~8.1.7",
     "expo-keep-awake": "~14.1.4",
-    "expo-haptics": "~14.1.4"
+    "expo-haptics": "~14.1.4",
+    "expo-brightness": "~13.1.4"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

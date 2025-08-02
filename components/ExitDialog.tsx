@@ -35,17 +35,17 @@ export default function ExitDialog({ visible, onExit, onCancel }: ExitDialogProp
             accessibilityRole="header"
             accessible={false}
           >
-            Vill du avsluta föreställningen?
+            Vill du lämna föreställningen?
           </Text>
           <TouchableOpacity
             ref={exitButtonRef}
             style={styles.exitButton}
             onPress={onExit}
             accessible={true}
-            accessibilityLabel="Stoppa föreställningen"
+            accessibilityLabel="Lämna föreställningen"
             accessibilityRole="button"
           >
-            <Text style={styles.exitButtonText}>Stoppa</Text>
+            <Text style={styles.exitButtonText}>Stopp</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.cancelButton}

@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Alert, StatusBar, BackHandler } from 'react-native';
 import * as KeepAwake from 'expo-keep-awake';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from 'expo-haptics';  // <-- Saknades!
 import playlistService from '../src/services/playlistService';
 import cueSimulator from '../src/services/cueSimulator';
 import { Playlist } from '../src/types';
@@ -67,7 +67,7 @@ export function useTheaterMode({
         clearInterval(longPressTimer.current!);
         longPressTimer.current = null;
         setLongPressProgress(0);
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         showExitDialogWithFocus();
       }
     }, 30);
@@ -97,7 +97,7 @@ export function useTheaterMode({
       // Gör ingen announce här om du öppnar modal direkt efteråt!
       if (isVoiceOverRunning) {
         announceForAccessibility(
-          "Uppspelningsläge har startat. Stäng inte av enheten och lås inte skärmen under föreställningen. Håll kvar fingret på skärmen tills en fråga visas om du vill avsluta."
+          ""
         );
       }
     } catch (error) {

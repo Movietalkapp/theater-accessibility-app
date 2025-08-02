@@ -13,7 +13,7 @@ interface TheaterModeScreenProps {
   longPressProgress: number;
   onLongPressStart: () => void;
   onLongPressEnd: () => void;
-  onExit: () => Promise<void>;
+  onExit: () => void;
   onCancel: () => void;
 }
 
@@ -47,20 +47,21 @@ export default function TheaterModeScreen({
   return (
     <View style={styles.theaterScreen}>
       <StatusBar hidden />
-      {/* Fullskärms touch-area för långtryck */}
       <TouchableOpacity
         style={styles.fullScreenTouch}
         onPressIn={onLongPressStart}
         onPressOut={onLongPressEnd}
         activeOpacity={1}
-        accessible={!showExitDialog}
-        accessibilityLabel={`Uppspelningsläge för ${currentShow?.showName}. Håll kvar fingret på skärmen tills en fråga visas om du vill avsluta.`}
+        accessible={true}
+        accessibilityLabel={currentShow?.showName ?? "Föreställning aktiv"}
         accessibilityRole="button"
       />
-      {/* Minimal lyssnar-indikator */}
+
+      {/* Lyssnar-indikator */}
       <View style={styles.listeningIndicator} accessible={false}>
         <View style={styles.listeningDot} accessible={false} />
       </View>
+
       {/* Långtryck progress */}
       {longPressProgress > 0 && (
         <View style={styles.progressContainer} accessible={false}>
@@ -69,21 +70,21 @@ export default function TheaterModeScreen({
           </View>
         </View>
       )}
-      {/* CENTRERAT INNEHÅLL: Infotext → ikon → showName */}
+
+      {/* CENTRERAT INNEHÅLL ÖVRE HALVAN */}
       {currentShow?.showName && (
-        <View style={styles.centerContainer} pointerEvents="none" accessible={false}>
-          <Text style={styles.infoText}>
-            Stäng inte av enheten eller lås skärmen under föreställningen.
-          </Text>
+        <View style={styles.centerContainer} pointerEvents="none" accessible={false} importantForAccessibility="no-hide-descendants">
+          <Text accessible={false} style={styles.showNameText}>{currentShow.showName}</Text>
           <FontAwesome
+            accessible={false}
             name="play-circle"
-            size={92}
+            size={150}
             color="#ffe066"
             style={styles.playIcon}
           />
-          <Text style={styles.showNameText}>{currentShow.showName}</Text>
         </View>
       )}
+
       {/* EXIT DIALOG */}
       <ExitDialog
         visible={showExitDialog}
@@ -95,16 +96,65 @@ export default function TheaterModeScreen({
 }
 
 const styles = StyleSheet.create({
-  // ... samma styles som tidigare (behåll eller anpassa)
-  theaterScreen: { flex: 1, backgroundColor: '#000000' },
-  fullScreenTouch: { flex: 1, backgroundColor: '#000000' },
-  listeningIndicator: { position: 'absolute', top: 50, right: 20 },
-  listeningDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#00ff00', opacity: 0.3 },
-  progressContainer: { position: 'absolute', top: '50%', left: '50%', transform: [{ translateX: -50 }, { translateY: -12 }] },
-  progressBar: { width: 100, height: 2, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 1 },
-  progressFill: { height: '100%', backgroundColor: 'rgba(255,255,255,0.4)', borderRadius: 1 },
-  centerContainer: { position: 'absolute', top: '50%', left: 0, right: 0, alignItems: 'center', transform: [{ translateY: -92 }] },
-  infoText: { color: '#ffe066', opacity: 0.36, fontSize: 18, fontWeight: '600', letterSpacing: 1, textAlign: 'center', marginBottom: 24, maxWidth: 320 },
-  playIcon: { opacity: 0.35, marginBottom: 14 },
-  showNameText: { color: '#ffe066', opacity: 0.29, fontSize: 34, fontWeight: 'bold', letterSpacing: 1.5, textAlign: 'center', textShadowColor: '#000', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 6, marginTop: 4 }
+  theaterScreen: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  fullScreenTouch: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  listeningIndicator: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+  },
+  listeningDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#00ff00',
+    opacity: 0.3,
+  },
+  progressContainer: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -50 }, { translateY: -12 }],
+  },
+  progressBar: {
+    width: 100,
+    height: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 1,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    borderRadius: 1,
+  },
+  centerContainer: {
+    position: 'absolute',
+    top: '12%',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    pointerEvents: 'none', // Blockar ej tryck
+  },
+  playIcon: {
+    opacity: 0.36,
+    marginBottom: 16,
+  },
+  showNameText: {
+    color: '#ffe066',
+    opacity: 0.32,
+    fontSize: 34,
+    fontWeight: 'bold',
+    letterSpacing: 1.5,
+    textAlign: 'center',
+    textShadowColor: '#000',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
+    marginBottom: 15,
+  },
 });

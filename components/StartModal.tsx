@@ -48,8 +48,8 @@ export default function StartModal({ visible, onStart, onCancel }: StartModalPro
             onPress={onStart}
             accessible={true}
             accessibilityLabel={
-              "Start! Stäng inte av enheten, och lås inte skärmen under föreställningen. " +
-              "För att avsluta, dubbeltryck och håll fingret på skärmen tills frågan visas. " +
+              "Start! Stäng inte av enheten och lås inte skärmen under föreställningen. " +
+              "För att avsluta, tryck två gånger och håll fingret på skärmen tills frågan visas. " +
               "Start. "
             }
             accessibilityRole="button"

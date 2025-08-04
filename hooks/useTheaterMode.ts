@@ -2,9 +2,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Alert, StatusBar, BackHandler } from 'react-native';
 import * as KeepAwake from 'expo-keep-awake';
-import * as Haptics from 'expo-haptics';  // <-- Saknades!
+import * as Haptics from 'expo-haptics';
 import playlistService from '../src/services/playlistService';
-import cueSimulator from '../src/services/cueSimulator';
 import { Playlist } from '../src/types';
 
 interface UseTheaterModeProps {
@@ -50,7 +49,6 @@ export function useTheaterMode({
     return () => backHandler.remove();
   }, [theaterMode, showExitDialog]);
 
-  // Modalen – sätter fokus på Stopp när den öppnas (löses i komponent med ref + useEffect, se nedan)
   const showExitDialogWithFocus = () => {
     setShowExitDialog(true);
   };
@@ -88,24 +86,22 @@ export function useTheaterMode({
 
       playlistService.setCurrentPlaylist(playlist);
       setCurrentShow(playlist);
-      cueSimulator.startSimulation(playlist);
-      await KeepAwake.activateKeepAwakeAsync(); // Måste vara async!
+
+      console.log(`📡 Starting BLE scanning for UUID=${playlist.bleUUID}`);
+
+      await KeepAwake.activateKeepAwakeAsync();
       StatusBar.setHidden(true);
       setTheaterMode(true);
       console.log(`🎭 Started playing: ${playlist.showName}`);
 
-      // Gör ingen announce här om du öppnar modal direkt efteråt!
       if (isVoiceOverRunning) {
-        announceForAccessibility(
-          ""
-        );
+        announceForAccessibility("");
       }
     } catch (error) {
       Alert.alert('Error', `Failed to start show: ${error}`, [{ text: 'OK' }]);
     }
   };
 
-  // KORRIGERAD – MÅSTE VARA async/await och tömma dialog först!
   const exitTheaterMode = async () => {
     setShowExitDialog(false);
     KeepAwake.deactivateKeepAwake();
@@ -113,7 +109,6 @@ export function useTheaterMode({
     setTheaterMode(false);
     setCurrentShow(null);
     setLongPressProgress(0);
-    cueSimulator.stopSimulation();
     console.log('🛑 Playback stopped');
   };
 

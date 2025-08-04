@@ -1,30 +1,71 @@
 // src/hooks/useBleCueListener.ts
 import { useEffect, useRef } from 'react';
+import { BleManager } from 'react-native-ble-plx';
+import { PermissionsAndroid, Platform } from 'react-native';
+import { Buffer } from 'buffer';
 
-// Byt ut denna hook till riktig BLE senare!
+
 export function useBleCueListener(
   cueCallback: (cueId: string) => void,
-  enabled: boolean
+  enabled: boolean,
+  targetUuid?: string
 ) {
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const managerRef = useRef<BleManager | null>(null);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !targetUuid) return;
 
-    // MOCK: triggar cue-id 1, 2, 3 med 8 sek mellanrum
-    const cues = ['1', '2', '3'];
-    let idx = 0;
-    timerRef.current = setInterval(() => {
-      if (idx < cues.length) {
-        cueCallback(cues[idx]);
-        idx++;
-      } else {
-        clearInterval(timerRef.current!);
+    const manager = new BleManager();
+    managerRef.current = manager;
+
+    const requestPermissions = async () => {
+      if (Platform.OS === 'android' && Platform.Version >= 23) {
+        await PermissionsAndroid.requestMultiple([
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        ]);
       }
-    }, 8000);
+    };
+
+    requestPermissions().then(() => {
+      console.log(`🔍 Börjar scanna efter BLE-enheter med UUID=${targetUuid}`);
+
+      manager.startDeviceScan(null, null, (error, device) => {
+        if (error) {
+          console.error('BLE-scan error:', error);
+          return;
+        }
+
+        const mfgData = device.manufacturerData;
+        if (mfgData) {
+          try {
+            const hexString = Buffer.from(mfgData, 'base64').toString('hex');
+
+            // UUID = 16 bytes, hoppa över första 8 hex-tecknen (4C00 0215)
+            const uuid = hexString.slice(8, 40).match(/.{1,4}/g)?.join('-') ?? '';
+
+            if (uuid.toLowerCase() === targetUuid.toLowerCase()) {
+              // Major = 2 bytes direkt efter UUID
+              const major = parseInt(hexString.slice(40, 44), 16);
+              // Minor = 2 bytes direkt efter Major
+              const minor = parseInt(hexString.slice(44, 48), 16);
+
+              const cueId = `${major}.${minor}`;
+              console.log(`📡 Beacon match! UUID=${uuid} Major=${major} Minor=${minor}`);
+              cueCallback(cueId);
+            }
+          } catch (err) {
+            console.error('Parse error:', err);
+          }
+        }
+      }); // ← Här stänger vi startDeviceScan-callbacken
+    });
 
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
+      console.log('🛑 Stoppar BLE-scan');
+      manager.stopDeviceScan();
+      manager.destroy();
     };
-  }, [enabled, cueCallback]);
+  }, [enabled, cueCallback, targetUuid]);
 }

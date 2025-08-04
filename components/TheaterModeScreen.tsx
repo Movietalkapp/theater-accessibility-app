@@ -1,6 +1,6 @@
 // components/TheaterModeScreen.tsx
 import React, { useCallback } from 'react';
-import { StyleSheet, TouchableOpacity, StatusBar, View, Text } from 'react-native';
+import { StyleSheet, TouchableOpacity, StatusBar, View, Text, Image } from 'react-native';
 import { Playlist } from '../src/types';
 import ExitDialog from './ExitDialog';
 import * as Speech from 'expo-speech';
@@ -42,7 +42,9 @@ export default function TheaterModeScreen({
     [currentShow]
   );
 
-  useBleCueListener(onCueTrigger, !!currentShow);
+  useBleCueListener(onCueTrigger, !!currentShow, currentShow?.bleUUID);
+
+
 
   return (
     <View style={styles.theaterScreen}>
@@ -75,12 +77,11 @@ export default function TheaterModeScreen({
       {currentShow?.showName && (
         <View style={styles.centerContainer} pointerEvents="none" accessible={false} importantForAccessibility="no-hide-descendants">
           <Text accessible={false} style={styles.showNameText}>{currentShow.showName}</Text>
-          <FontAwesome
+          <Image
+            source={require('../assets/images/stagetalk_bg.png')}
+            style={styles.centerImage}
             accessible={false}
-            name="play-circle"
-            size={150}
-            color="#ffe066"
-            style={styles.playIcon}
+            resizeMode="contain"
           />
         </View>
       )}
@@ -110,8 +111,8 @@ const styles = StyleSheet.create({
     right: 20,
   },
   listeningDot: {
-    width: 4,
-    height: 4,
+    width: 10,
+    height: 10,
     borderRadius: 2,
     backgroundColor: '#00ff00',
     opacity: 0.3,
@@ -146,8 +147,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   showNameText: {
-    color: '#ffe066',
-    opacity: 0.32,
+    color: '#ab1613',
+    opacity: 0.36,
     fontSize: 34,
     fontWeight: 'bold',
     letterSpacing: 1.5,
@@ -156,5 +157,12 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 6,
     marginBottom: 15,
+  },
+  // [id: styles-centerImage]
+  centerImage: {
+    width: 200, // Justera efter behov
+    height: 200 * (940 / 807),
+    opacity: 0.3,
+    marginBottom: 16,
   },
 });
